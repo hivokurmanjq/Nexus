@@ -1,0 +1,28 @@
+name = "nexus"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true
+
+[vars]
+OWNER_ID = "0"
+BOT_USERNAME = ""
+WORKER_URL = ""
+MINI_APP_URL = ""
+
+# ── KV Namespace (برای کش) ──
+[[kv_namespaces]]
+binding = "CACHE"
+id = "7373a17665743934a7936f26abe2e5dd"
+
+# ── D1 Database ──
+[[d1_databases]]
+binding = "DB"
+database_name = "nexus-guard-db"
+database_id = "0000005e-00000007-000050e8-3a36993c353e669873a5027f646f0381"
+
+# ── Workers AI ──
+[ai]
+binding = "AI"
