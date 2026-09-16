@@ -1,0 +1,258 @@
+// ═══════════════════════════════════════════════════════════
+//  NEXUS — Intent Handler (Part 1/2)
+//  از worker.js اصلی منتقل شده — بدون حذف
+// ═══════════════════════════════════════════════════════════
+
+import { Utils } from '../lib/utils.js';
+import { Views } from '../views/index.js';
+import { RESTRICT_ALL, UNRESTRICT_ALL, BOT } from '../config/constants.js';
+import { LANG } from '../config/constants.js';
+import { Log } from '../lib/log.js';
+
+export async function handleIntent(ctx, intent) {
+  // ═══ Universal ═══
+  if (intent === 'cancel') {
+    await ctx.db.clearSession(ctx.chat.id, ctx.from.id);
+    return ctx.reply(Views.info('لغو شد'));
+  }
+  if (intent === 'start') {
+    const v = Views.start(ctx);
+    return ctx.send(v.text, { reply_markup: v.keyboard });
+  }
+  if (intent === 'help') {
+    const v = Views.help();
+    return ctx.send(v.text, { reply_markup: v.keyboard });
+  }
+
+  if (intent === 'ping') {
+    const t0 = Date.now();
+    const m = await ctx.send(`<i>...</i>`);
+    if (m?.ok) {
+      const p = Date.now() - t0;
+      const q = p < 200 ? 'عالی' : p < 500 ? 'خوب' : 'متوسط';
+      let text = `<b>Pong</b>\n\n`;
+      text += `<pre>سرعت     ${p}ms\n`;
+      text += `وضعیت    ${q}\n`;
+      text += `نسخه     ${BOT.version}</pre>`;
+      await ctx.api.editMessage(ctx.chat.id, m.result.message_id, text);
+    }
+    return;
+  }
+
+  if (intent === 'id') {
+    let text = `<b>شناسه‌ها</b>\n\n`;
+    text += `<pre>شما     ${ctx.from.id}\n`;
+    text += `چت      ${ctx.chat.id}</pre>`;
+    if (ctx.message.reply_to_message?.from) {
+      text += `\n\n<b>ریپلای</b>\n<pre>${ctx.message.reply_to_message.from.id}</pre>`;
+    }
+    return ctx.reply(text);
+  }
+
+  if (intent === 'dashboard') {
+    const token = await ctx.db.createDashboardToken(ctx.from.id);
+    const url = (ctx.env.WORKER_URL || 'https://your-worker.workers.dev') + `/dashboard?token=${token}`;
+    return ctx.reply(
+      `<b>داشبورد وب</b>\n<blockquote>معتبر برای ۷ روز\nفقط شما دسترسی دارید</blockquote>`,
+      { reply_markup: { inline_keyboard: [[{ text: '🌐  باز کردن داشبورد', url }]] } }
+    );
+  }
+
+  // ═══ Status panel (Agentic) ═══
+  if (intent === 'status') {
+    if (!ctx.isGroup()) return ctx.reply(Views.info('فقط در گروه'));
+    const v = await Views.statusPanel(ctx);
+    return ctx.send(v.text, { reply_markup: v.keyboard });
+  }
+
+  // ═══ Report ═══
+  if (intent === 'report') {
+    const target = ctx.message.reply_to_message?.from;
+    if (!target) return ctx.reply(Views.info('روی پیام خاطی ریپلای کن'));
+    const ext = await ctx.db.getChatExt(ctx.chat.id);
+    if (!ext.reports_enabled) return ctx.reply(Views.info('گزارش‌گیری خاموش است'));
+    if (target.id === ctx.from.id) return ctx.reply(Views.info('خودت رو نمی‌تونی گزارش کنی'));
+
+    const reason = ctx.text.split(/\s+/).slice(1).join(' ').trim() || 'بدون توضیح';
+    await ctx.db.execute(
+      `INSERT INTO reports (chat_id,reporter_id,target_id,message_id,reason) VALUES (?,?,?,?,?)`,
+      [ctx.chat.id, ctx.from.id, target.id, ctx.message.reply_to_message.message_id, reason]
+    );
+
+    const admins = await ctx.api.getChatAdministrators(ctx.chat.id);
+    let notifyText = `<b>🚨 گزارش جدید</b>\n`;
+    notifyText += `<blockquote>${Utils.mention(ctx.from)} گزارش داد\n${Utils.mention(target)} را</blockquote>\n\n`;
+    notifyText += `<pre>دلیل     ${Utils.escapeHtml(reason)}\n`;
+    notifyText += `گروه     ${Utils.escapeHtml(ctx.chat.title || '')}</pre>`;
+    if (admins.ok) {
+      for (const a of admins.result.slice(0, 3)) {
+        if (a.user.is_bot || a.user.id === ctx.from.id) continue;
+        ctx.ctx.waitUntil(ctx.api.sendMessage(a.user.id, notifyText).catch(() => {}));
+      }
+    }
+    await ctx.reply(`<b>گزارش ثبت شد</b>\n<blockquote>ادمین‌ها مطلع شدند</blockquote>`);
+    return;
+  }
+
+  // ═══ Price ═══
+  if (intent === 'price') {
+    const args = ctx.text.split(/\s+/).slice(1);
+    const query = args.join(' ').trim() || 'دلار';
+    const { code, label } = Utils.parseExchangeQuery(query);
+    const cacheKey = `rate:${code}`;
+    let cached = await ctx.db.getCachedRate(cacheKey, 900);
+
+    if (!cached) {
+      let result = null;
+      try {
+        const r = await fetch('https://open.er-api.com/v6/latest/USD', {
+          signal: AbortSignal.timeout(6000),
+        });
+        if (r.ok) {
+          const j = await r.json();
+          if (j?.rates && j.rates[code]) {
+            let price = j.rates[code];
+            let unit = code;
+            if (code === 'IRR') {
+              price = Math.round(price / 10);
+              unit = 'تومان';
+            }
+            result = {
+              query, code, label,
+              price, unit,
+              irr: code === 'IRR' ? j.rates[code] : null,
+              note: '',
+              ts: Date.now(),
+            };
+          }
+        }
+      } catch (e) {
+        Log.error('rate_fetch', { err: e.message });
+      }
+      if (!result) {
+        result = {
+          query, code, label,
+          price: 0, unit: '',
+          note: 'اتصال به سرور نرخ ناموفق بود. لطفاً بعداً تلاش کن.',
+          ts: Date.now(),
+        };
+      }
+      await ctx.db.saveCachedRate(cacheKey, result);
+      cached = result;
+    }
+
+    if (cached.note) {
+      return ctx.reply(
+        `<b>💱 نرخ ارز</b>\n<blockquote>${Utils.escapeHtml(cached.label)}</blockquote>\n\n<i>${cached.note}</i>`
+      );
+    }
+
+    let text = `<b>💱 نرخ ارز</b>\n`;
+    text += `<blockquote>۱ <b>${Utils.escapeHtml(cached.label)}</b> چند؟</blockquote>\n\n`;
+    text += `<pre>نرخ       ${Utils.formatPrice(cached.price)} ${cached.unit}`;
+    if (cached.irr) text += `\nمعادل      ${Utils.formatPrice(cached.irr)} ریال`;
+    text += `\nبه‌روزرسانی  ${Utils.formatTimestamp(Math.floor(cached.ts / 1000))}</pre>\n\n`;
+    text += `<i>· نرخ‌ها تقریبی و از منابع عمومی است</i>`;
+    return ctx.reply(text);
+  }
+
+  // ═══ Anime ═══
+  if (intent === 'anime') {
+    const args = ctx.text.split(/\s+/).slice(1);
+    const query = args.join(' ').trim();
+    if (!query) return ctx.reply(Views.info('نام انیمه رو بنویس — مثال: <code>انیمه Naruto</code>'));
+
+    const cacheKey = `anime:${query.toLowerCase().slice(0, 40)}`;
+    let cached = await ctx.db.getCachedRate(cacheKey, 3600);
+
+    if (!cached) {
+      try {
+        const r = await fetch(
+          `https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=1`,
+          { signal: AbortSignal.timeout(6000) }
+        );
+        if (r.ok) {
+          const j = await r.json();
+          const a = j?.data?.[0];
+          if (a) {
+            cached = {
+              title: a.title || '',
+              title_en: a.title_english || '',
+              score: a.score || 0,
+              rank: a.rank || 0,
+              episodes: a.episodes || 0,
+              status: a.status || '',
+              year: a.year || '—',
+              synopsis: (a.synopsis || '').slice(0, 250),
+              url: a.url || 'https://myanimelist.net',
+              ts: Date.now(),
+            };
+          }
+        }
+      } catch (e) {
+        Log.error('anime_fetch', { err: e.message });
+      }
+      if (!cached) cached = { notFound: true, ts: Date.now() };
+      await ctx.db.saveCachedRate(cacheKey, cached);
+    }
+
+    if (cached.notFound) return ctx.reply(Views.info('انیمه‌ای با این نام پیدا نشد'));
+
+    let text = `<b>🎬 ${Utils.escapeHtml(cached.title)}</b>\n`;
+    if (cached.title_en) text += `<i>${Utils.escapeHtml(cached.title_en)}</i>\n`;
+    text += `\n<pre>امتیاز    ${cached.score || '—'}\n`;
+    text += `رتبه      #${cached.rank || '—'}\n`;
+    text += `قسمت      ${cached.episodes || '—'}\n`;
+    text += `وضعیت     ${cached.status || '—'}\n`;
+    text += `سال       ${cached.year || '—'}</pre>\n\n`;
+    if (cached.synopsis) text += `<blockquote expandable>${Utils.escapeHtml(cached.synopsis)}…</blockquote>`;
+
+    const buttons = [];
+    if (cached.url) buttons.push({ text: '🔗 MyAnimeList', url: cached.url });
+
+    return ctx.reply(text, {
+      reply_markup: buttons.length ? { inline_keyboard: [buttons] } : undefined,
+    });
+  }
+
+  if (!ctx.isGroup()) return ctx.reply(Views.info('این دستور فقط در گروه است'));
+
+  // ═══ Group public commands ═══
+  if (intent === 'settings') {
+    if (!(await ctx.isAdmin())) return ctx.reply(Views.error('فقط ادمین‌ها'));
+    const s = await ctx.getSettings();
+    const v = Views.panelMain(ctx.chat, s);
+    return ctx.send(v.text, { reply_markup: v.keyboard });
+  }
+  if (intent === 'stats') {
+    const v = await Views.panelStats(ctx);
+    return ctx.send(v.text, { reply_markup: v.keyboard });
+  }
+  if (intent === 'admins') {
+    const v = await Views.panelAdmins(ctx);
+    return ctx.send(v.text, { reply_markup: v.keyboard });
+  }
+
+  if (intent === 'rules') {
+    const n = await ctx.db.findNote(ctx.chat.id, 'rules');
+    if (n) return ctx.reply(n.content);
+    return ctx.reply(Views.info('قوانینی ثبت نشده — ادمین از پنل > یادداشت‌ها اضافه کند'));
+  }
+
+  if (intent === 'listnotes') {
+    const n = await ctx.db.listNotes(ctx.chat.id);
+    if (!n.length) return ctx.reply(Views.info('یادداشتی نیست'));
+    let text = `<b>یادداشت‌ها</b>\n\n`;
+    text += n.map(x => `◆ <code>#${Utils.escapeHtml(x.name)}</code>`).join('\n');
+    return ctx.reply(text);
+  }
+
+  if (intent === 'profile') {
+    const t = ctx.message.reply_to_message?.from || ctx.from;
+    if (t.is_bot) return ctx.reply(Views.info('پروفایل ربات نمایش داده نمی‌شود'));
+    const v = await Views.profile(ctx, t);
+    return ctx.send(v.text, { reply_markup: v.keyboard });
+  }
+
+  // ─── ادامه در پیام بعدی ───
+}
