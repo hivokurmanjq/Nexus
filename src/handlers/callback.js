@@ -1,6 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-//  NEXUS — Callback Handler (Part 1/2)
-//  از worker.js اصلی منتقل شده — بدون حذف
+//  NEXUS — Callback Handler (Fixed)
 // ═══════════════════════════════════════════════════════════
 
 import { Utils } from '../lib/utils.js';
@@ -393,17 +392,11 @@ export async function handleCallback(ctx) {
   return ctx.answer();
 }
 
-// ─── ادامه در پیام بعدی ───
-  // ─── در انتهای تابع handleCallback، قبل از } پایانی ───
-  return ctx.answer();
-}
-
 // ═══════════════════════════════════════════════════════════
 //  Confirm Callback — Agentic two-step for dangerous actions
 // ═══════════════════════════════════════════════════════════
 export async function handleConfirmCallback(ctx, d) {
   const parts = d.split(':');
-  // format: confirm:action:yes:param  or  confirm:cancel
   if (parts[1] === 'cancel') {
     await ctx.editText(`<i>لغو شد</i>`);
     return ctx.answer('لغو شد');
