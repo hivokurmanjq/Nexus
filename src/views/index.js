@@ -508,9 +508,7 @@ export const Views = {
       },
     };
   },
-
-  // ─── ادامه در پیام بعدی ───
-};
+  
   async panelTriggers(ctx) {
     const t = await ctx.db.getTriggers(ctx.chat.id);
     let text = `<b>پاسخ خودکار</b>\n<blockquote>پاسخ خودکار به کلمات کلیدی</blockquote>\n\n`;
