@@ -1016,4 +1016,3 @@ export async function handleIntent(ctx, intent) {
     const v = Views.confirmAction('purge', `${sMid}|${eMid}`, desc);
     return ctx.reply(v.text, { reply_markup: v.keyboard });
   }
-}
