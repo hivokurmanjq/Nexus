@@ -1,0 +1,15 @@
+{
+  "name": "nexus",
+  "version": "13.0.0",
+  "private": true,
+  "type": "module",
+  "description": "NEXUS — Community Intelligence OS for Telegram",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "^3.90.0"
+  }
+}
