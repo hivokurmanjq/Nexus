@@ -1,12 +1,11 @@
 // ═══════════════════════════════════════════════════════════
-//  NEXUS — Intent Handler (Part 1/2)
+//  NEXUS — Intent Handler
 //  از worker.js اصلی منتقل شده — بدون حذف
 // ═══════════════════════════════════════════════════════════
 
 import { Utils } from '../lib/utils.js';
 import { Views } from '../views/index.js';
-import { RESTRICT_ALL, UNRESTRICT_ALL, BOT } from '../config/constants.js';
-import { LANG } from '../config/constants.js';
+import { RESTRICT_ALL, UNRESTRICT_ALL, BOT, LANG } from '../config/constants.js';
 import { Log } from '../lib/log.js';
 
 export async function handleIntent(ctx, intent) {
@@ -253,9 +252,7 @@ export async function handleIntent(ctx, intent) {
     const v = await Views.profile(ctx, t);
     return ctx.send(v.text, { reply_markup: v.keyboard });
   }
-
-  // ─── ادامه در پیام بعدی ───
-}
+  
   if (intent === 'leaderboard') {
     const v = await Views.leaderboard(ctx);
     return ctx.send(v.text, { reply_markup: v.keyboard });
@@ -1016,3 +1013,4 @@ export async function handleIntent(ctx, intent) {
     const v = Views.confirmAction('purge', `${sMid}|${eMid}`, desc);
     return ctx.reply(v.text, { reply_markup: v.keyboard });
   }
+}
