@@ -21,7 +21,7 @@ id = "7373a17665743934a7936f26abe2e5dd"
 [[d1_databases]]
 binding = "DB"
 database_name = "nexus-guard-db"
-database_id = "0000005e-00000007-000050e8-3a36993c353e669873a5027f646f0381"
+database_id = "f4553e03-e484-41c7-9219-5325c3ea2580"
 
 # ── Workers AI ──
 [ai]
