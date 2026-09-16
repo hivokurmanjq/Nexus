@@ -1,0 +1,65 @@
+// ═══════════════════════════════════════════════════════════
+//  NEXUS — Defaults
+// ═══════════════════════════════════════════════════════════
+
+export const DEFAULT_SETTINGS = {
+  language: 'fa',
+  antiLink: true,
+  antiWord: true,
+  antiFlood: true,
+  antiRaid: true,
+  antiChannel: true,
+  antiLanguage: false,
+  allowedLanguages: ['fa', 'en'],
+  silentActions: false,
+  warnLimit: 3,
+  warnAction: 'mute',
+  warnDuration: 3600,
+  warnEscalation: false,
+  floodMax: 5,
+  floodSeconds: 8,
+  floodMute: 300,
+  locks: {
+    sticker: false, gif: false, photo: false, video: false,
+    voice: false, audio: false, document: false, forward: false,
+    url: false, bot: false, inline: false, game: false,
+    lockdown: false,
+  },
+  welcome: { enabled: true, text: null, cleanPrevious: true, media: null },
+  goodbye: { enabled: false, text: null, media: null },
+  captcha: { enabled: false, type: 'button', timeout: 120, kickOnFail: true, maxAttempts: 3 },
+  raid: { threshold: 5, window: 10, lockDuration: 300 },
+  ai: { enabled: false, replyToAdmins: true, replyOnMention: true, replyOnReply: true, rateLimit: 10 },
+  xp: { enabled: true, perMessage: 5, cooldown: 60, levelUpNotify: true },
+  games: { enabled: true },
+  reputation: { enabled: true, cooldown: 86400 },
+  smartTriggers: true,
+  deleteService: true,
+  logChannel: null,
+  shutup: false,
+  nightMode: { enabled: false, from: 23, to: 7, action: 'mute' },
+  recordMode: { enabled: false, retention: 7 },
+  pinnedStatus: { enabled: false, messageId: null, updatedAt: 0 },
+  ui: { compact: true, motion: true, premiumMessages: true },
+};
+
+export const V14_DEFAULTS = {
+  smartShield: {
+    enabled: false,
+    mode: 'observe',
+    newcomerProbation: false,
+    probationSeconds: 86400,
+    linkPolicy: 'newcomers',
+    thresholds: { review: 35, delete: 50, mute: 70, critical: 85 },
+  },
+  reportsV2: { enabled: true, anonymous: true, notifyReporter: true, slaMinutes: 30 },
+  reactionGuard: { enabled: false, maxPerMinute: 12, newcomersOnly: true },
+  joinFlow: { enabled: false, mode: 'manual', requireRules: false },
+  forum: { enabled: true, inheritSettings: true },
+  inviteCampaigns: { enabled: true },
+  aiOps: { summaries: false, adminInsights: true, dailyQuota: 30 },
+  featureFlags: {
+    smartShield: false, reportsV2: true, reactionGuard: false,
+    joinFlow: false, forum: true, inviteCampaigns: true, aiOps: false,
+  },
+};
